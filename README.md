@@ -26,6 +26,7 @@
 - **概览卡片**：总已用空间、较昨日变化、可用空间、今日记录时间。
 - **手动记录**：点击“立即记录”或按 `F5`。
 - **导出 CSV**：点击“导出 CSV”或按 `Ctrl+E`，可用 Excel 打开。
+- **导入 CSV**：点击“导入 CSV”或按 `Ctrl+I`，把历史 CSV 合并进当前数据。
 - **开机自动记录开关**：界面底部开关，或托盘右键菜单。
 - **无需管理员权限**：只写入当前用户目录和 `HKCU` 启动项。
 - **完全本地**：不联网、不上传任何数据。
@@ -82,7 +83,10 @@ HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 | `DiskPulse.exe --silent` | 静默后台运行（开机启动使用） |
 | `DiskPulse.exe --record` | 记录一次后退出 |
 | `DiskPulse.exe --export 文件.csv` | 导出全部历史后退出 |
+| `DiskPulse.exe --import 文件.csv` | 从 CSV 导入历史后退出（需先退出已运行的 DiskPulse） |
 | `--no-autostart` | 本次不修改开机启动项（调试用） |
+
+导入的 CSV 支持软件自己导出的格式（表头为 `日期,磁盘,卷标,总容量(GB),已用(GB),可用(GB),使用率(%)`），也接受没有表头、按同样顺序排列的数据。相同日期会合并，同一日期同一磁盘以 CSV 中最后一行覆盖。
 
 ## 从源码构建
 

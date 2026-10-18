@@ -20,6 +20,7 @@ namespace DiskPulse
         private readonly List<DriveChip> _chips = new List<DriveChip>();
         private readonly PillButton _recordButton;
         private readonly PillButton _exportButton;
+        private readonly PillButton _importButton;
         private readonly PillButton _folderButton;
         private readonly ToggleSwitch _autoToggle;
         private readonly Label _autoLabel;
@@ -123,6 +124,11 @@ namespace DiskPulse
             _exportButton.Click += delegate { ExportCsv(); };
             Controls.Add(_exportButton);
 
+            _importButton = new PillButton();
+            _importButton.Text = "导入 CSV";
+            _importButton.Click += delegate { ImportCsv(); };
+            Controls.Add(_importButton);
+
             _folderButton = new PillButton();
             _folderButton.Text = "打开目录";
             _folderButton.Click += delegate { OpenDataFolder(); };
@@ -165,6 +171,7 @@ namespace DiskPulse
             _toolTip.SetToolTip(_autoToggle, "登录 Windows 后静默启动并在后台记录");
             _toolTip.SetToolTip(_recordButton, "立即保存今天的磁盘使用快照 (F5)");
             _toolTip.SetToolTip(_exportButton, "将全部历史记录导出为 CSV (Ctrl+E)");
+            _toolTip.SetToolTip(_importButton, "从 CSV 文件导入历史记录并合并到当前数据 (Ctrl+I)");
             _toolTip.SetToolTip(_folderButton, "打开历史记录与日志所在文件夹");
 
             _recordTimer = new Timer();
@@ -685,15 +692,19 @@ namespace DiskPulse
             float buttonY = chipsTop + (chipH - 36f * s) / 2f;
             float recordW = 96f * s;
             float exportW = 88f * s;
+            float importW = 88f * s;
             float folderW = 96f * s;
             float buttonGap = 8f * s;
             float folderX = Width - margin - folderW;
             float exportX = folderX - buttonGap - exportW;
-            float recordX = exportX - buttonGap - recordW;
+            float importX = exportX - buttonGap - importW;
+            float recordX = importX - buttonGap - recordW;
             _folderButton.Bounds = new Rectangle((int)Math.Round(folderX), (int)Math.Round(buttonY),
                 (int)Math.Round(folderW), (int)Math.Round(36f * s));
             _exportButton.Bounds = new Rectangle((int)Math.Round(exportX), (int)Math.Round(buttonY),
                 (int)Math.Round(exportW), (int)Math.Round(36f * s));
+            _importButton.Bounds = new Rectangle((int)Math.Round(importX), (int)Math.Round(buttonY),
+                (int)Math.Round(importW), (int)Math.Round(36f * s));
             _recordButton.Bounds = new Rectangle((int)Math.Round(recordX), (int)Math.Round(buttonY),
                 (int)Math.Round(recordW), (int)Math.Round(36f * s));
 
@@ -1049,6 +1060,11 @@ namespace DiskPulse
                 ExportCsv();
                 return true;
             }
+            if (keyData == (Keys.Control | Keys.I))
+            {
+                ImportCsv();
+                return true;
+            }
             if (keyData == Keys.Escape)
             {
                 HideToTray();
@@ -1075,6 +1091,14 @@ namespace DiskPulse
             ToolStripMenuItem recordItem = new ToolStripMenuItem("立即记录");
             recordItem.Click += delegate { DoRecord("托盘"); };
             _trayMenu.Items.Add(recordItem);
+
+            ToolStripMenuItem importItem = new ToolStripMenuItem("导入 CSV");
+            importItem.Click += delegate { ImportCsv(); };
+            _trayMenu.Items.Add(importItem);
+
+            ToolStripMenuItem exportItem = new ToolStripMenuItem("导出 CSV");
+            exportItem.Click += delegate { ExportCsv(); };
+            _trayMenu.Items.Add(exportItem);
 
             _trayMenu.Items.Add(new ToolStripSeparator());
 
@@ -1185,6 +1209,54 @@ namespace DiskPulse
             {
                 Logger.Error("导出 CSV 失败", ex);
                 SetStatus("导出失败，请查看日志", true);
+            }
+        }
+
+        private void ImportCsv()
+        {
+            try
+            {
+                using (OpenFileDialog dialog = new OpenFileDialog())
+                {
+                    dialog.Title = "导入磁盘历史记录";
+                    dialog.Filter = "CSV 文件 (*.csv)|*.csv|所有文件 (*.*)|*.*";
+                    dialog.CheckFileExists = true;
+                    try
+                    {
+                        dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                    }
+                    catch
+                    {
+                    }
+                    if (dialog.ShowDialog() != DialogResult.OK) return;
+
+                    CsvImportResult result = CsvImporter.Import(_store, dialog.FileName);
+
+                    // After import, show the full history so the newly added dates are visible.
+                    _rangeDays = 0;
+                    _settings.RangeDays = 0;
+                    _settings.Save();
+                    _range.SetSelectedSilently(RangeIndex(0));
+
+                    RefreshData(false);
+
+                    string status = "已导入 " + result.ValidRows + " 条 · 新增 " + result.ImportedDays + " 天";
+                    if (result.UpdatedDays > 0) status += " · 更新 " + result.UpdatedDays + " 天";
+                    if (result.Errors.Count > 0) status += " · 跳过 " + result.Errors.Count + " 行";
+                    SetStatus(status, result.ValidRows == 0);
+
+                    Logger.Info("导入 CSV: " + dialog.FileName + " 有效 " + result.ValidRows + " 行，新增 " +
+                        result.ImportedDays + " 天，更新 " + result.UpdatedDays + " 天，跳过 " + result.Errors.Count + " 行");
+                    for (int i = 0; i < result.Errors.Count && i < 8; i++)
+                    {
+                        Logger.Error("导入跳过: " + result.Errors[i], null);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("导入 CSV 失败", ex);
+                SetStatus("导入失败，请查看日志", true);
             }
         }
 
