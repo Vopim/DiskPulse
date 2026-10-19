@@ -82,7 +82,7 @@ namespace DiskPulse
             ForeColor = Theme.Text;
             Text = AppPaths.DisplayName;
             ShowInTaskbar = !startHidden;
-            StartPosition = FormStartPosition.CenterScreen;
+            StartPosition = FormStartPosition.Manual;
             Size = new Size(1180, 800);
             KeyPreview = true;
 
@@ -272,7 +272,17 @@ namespace DiskPulse
                 {
                 }
                 LayoutUi();
+                CenterOnScreen();
             }
+        }
+
+        private void CenterOnScreen()
+        {
+            if (WindowState != FormWindowState.Normal) return;
+            Rectangle area = Screen.FromControl(this).WorkingArea;
+            int x = area.Left + Math.Max(0, (area.Width - Width) / 2);
+            int y = area.Top + Math.Max(0, (area.Height - Height) / 2);
+            Location = new Point(x, y);
         }
 
         protected override CreateParams CreateParams
@@ -926,9 +936,12 @@ namespace DiskPulse
                 return;
             }
             if (_exiting) return;
+            bool wasHidden = !Visible;
+            bool wasMinimized = WindowState == FormWindowState.Minimized;
             ShowInTaskbar = true;
-            if (!Visible) Show();
-            if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+            if (wasHidden) Show();
+            if (wasMinimized) WindowState = FormWindowState.Normal;
+            if (wasHidden || wasMinimized) CenterOnScreen();
             RefreshData(true);
             if (_autoStartWarning && !_autoStartWarningShown)
             {

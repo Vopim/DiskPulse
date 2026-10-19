@@ -7,7 +7,7 @@ namespace DiskPulse
     {
         public const string AppName = "DiskPulse";
         public const string DisplayName = "DiskPulse 磁盘存储记录";
-        public const string Version = "1.1.0";
+        public const string Version = "1.1.1";
 
         private static string _root;
         private static bool _portableFallback;
